@@ -125,8 +125,8 @@ BOOL IsElevated()
 
 int main()
 {
-	CHAR cRegEntry[16];
-	CHAR cHWID[17];
+	CHAR cRegEntry[256];
+	CHAR cHWID[30];
 	HKEY hKey;
 	LSTATUS lStatus;
 
@@ -149,8 +149,8 @@ int main()
 	lstrcatA(cRegEntry, "}");
 	printf("Deleting the key: %s\n", cRegEntry); //d9c28570-d31f-000-d31f000000-00000000
 
-	lStatus = RegCreateKeyExA(HKEY_CURRENT_USER, cRegEntry, NULL, NULL, NULL, 0x101u, NULL, &hKey, NULL);
-
+	lStatus = RegOpenKeyExA(HKEY_CURRENT_USER, cRegEntry, 0, KEY_READ, &hKey);
+	
 	if (lStatus == ERROR_SUCCESS)
 	{
 		lStatus = SHDeleteKeyA(HKEY_CURRENT_USER, cRegEntry);
@@ -159,11 +159,11 @@ int main()
 			printf("Successfully deleted key!\n");
 		else
 			printf(
-				"There was an exception when attempting to delete the registry key! Perhaps it was already deleted! ERROR CODE: %04x\n",
+				"There was an exception when attempting to delete the registry key! ERROR CODE: %04x\n",
 				lStatus);
 	}
 	else
-		printf("Could not find the CLSID key, error code: %d\n", lStatus);
+		printf("Could not find the CLSID key, perhaps it was already deleted! error code: %d\n", lStatus);
 
 
 	printf("Press any key to exit!");
