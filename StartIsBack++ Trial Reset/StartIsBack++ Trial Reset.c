@@ -147,7 +147,7 @@ int main()
 	lstrcpyA(cRegEntry, "SOFTWARE\\Classes\\CLSID\\{");
 	lstrcatA(cRegEntry, cHWID);
 	lstrcatA(cRegEntry, "}");
-	printf("Deleting the key: %s\n", cRegEntry); //d9c28570-d31f-000-d31f000000-00000000
+	printf("Deleting the key: %s\n", cRegEntry);
 
 	lStatus = RegOpenKeyExA(HKEY_CURRENT_USER, cRegEntry, 0, KEY_READ, &hKey);
 	
