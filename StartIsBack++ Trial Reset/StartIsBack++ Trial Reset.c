@@ -4,6 +4,7 @@
 #include <shlwapi.h>
 #pragma comment(lib, "Shlwapi.lib")
 
+
 #define BYTEn(x, n)   (*((unsigned char*)&(x)+n))
 #define WORDn(x, n)   (*((unsigned short*)&(x)+n))
 #define BYTE1(x)   BYTEn(x,  1)
@@ -13,6 +14,52 @@
 #define BYTE5(x)   BYTEn(x,  5)
 #define BYTE6(x)   BYTEn(x,  6)
 #define WORD2(x)   WORDn(x,  2)
+
+char** str_split(char* a_str, const char a_delim)
+{
+	char** result = 0;
+	size_t count = 0;
+	char* tmp = a_str;
+	char* last_comma = 0;
+	char delim[2];
+	delim[0] = a_delim;
+	delim[1] = 0;
+
+	/* Count how many elements will be extracted. */
+	while (*tmp)
+	{
+		if (a_delim == *tmp)
+		{
+			count++;
+			last_comma = tmp;
+		}
+		tmp++;
+	}
+
+	/* Add space for trailing token. */
+	count += last_comma < (a_str + strlen(a_str) - 1);
+
+	/* Add space for terminating null string so caller
+	   knows where the list of returned strings ends. */
+	count++;
+
+	result = malloc(sizeof(char*) * count);
+
+	if (result)
+	{
+		size_t idx = 0;
+		char* token = strtok(a_str, delim);
+
+		while (token)
+		{
+			*(result + idx++) = _strdup(token);
+			token = strtok(0, delim);
+		}
+		*(result + idx) = 0;
+	}
+
+	return result;
+}
 
 UINT __fastcall RetrieveUniqueHWID(LPSTR a1)
 {
@@ -68,7 +115,7 @@ UINT __fastcall RetrieveUniqueHWID(LPSTR a1)
 			{
 				v12 = (unsigned int)(v6 + 8);
 				v13 = *(__int64*)&v4[v12 + 8];
-				v14 = _mm_srli_si128(*(__m128i*)&v4[v12 + 8], 8).m128i_u64[0];
+				v14 = _mm_srli_si128(*(__m128i*) & v4[v12 + 8], 8).m128i_u64[0];
 				v23 = BYTE4(v14);
 				v22 = BYTE5(v14);
 				v21 = BYTE6(v14);
@@ -125,9 +172,14 @@ BOOL IsElevated()
 
 int main()
 {
-	CHAR cRegEntry[256];
-	CHAR cHWID[30];
+	CHAR cRegEntry[MAX_PATH];
+	CHAR cHWID[MAX_PATH];
 	HKEY hKey;
+	TCHAR achClass[MAX_PATH] = TEXT("");
+	DWORD cchClassName = MAX_PATH;
+	DWORD csName;
+	TCHAR achKey[MAX_PATH];
+	DWORD cSubKeys = NULL;
 	LSTATUS lStatus;
 
 	SetConsoleTitle(L"StartIsBack Crack");
@@ -144,29 +196,61 @@ int main()
 	lstrcpyA(cHWID, "yyyy yyyy");
 	RetrieveUniqueHWID(cHWID);
 	cHWID[13] = 45;
-	lstrcpyA(cRegEntry, "SOFTWARE\\Classes\\CLSID\\{");
-	lstrcatA(cRegEntry, cHWID);
-	lstrcatA(cRegEntry, "}");
-	printf("Deleting the key: %s\n", cRegEntry);
-
+	lstrcpyA(cRegEntry, "SOFTWARE\\Classes\\CLSID");
 	lStatus = RegOpenKeyExA(HKEY_CURRENT_USER, cRegEntry, 0, KEY_READ, &hKey);
-	
+
 	if (lStatus == ERROR_SUCCESS)
 	{
-		lStatus = SHDeleteKeyA(HKEY_CURRENT_USER, cRegEntry);
+		lStatus = RegQueryInfoKeyW(hKey, achClass, &cchClassName, NULL, &cSubKeys, NULL, NULL, NULL, NULL, NULL, NULL,
+			NULL);
 
 		if (lStatus == ERROR_SUCCESS)
-			printf("Successfully deleted key!\n");
+		{
+			for (int i = 0; i < cSubKeys; i++)
+			{
+				csName = MAX_PATH;
+
+				if (RegEnumKeyEx(hKey, i,
+					achKey,
+					&csName,
+					NULL,
+					NULL,
+					NULL,
+					NULL) == ERROR_SUCCESS)
+				{
+					if (strcmp(str_split(achKey + 1, '-')[0], str_split(cHWID, '-')[0]) == 0)
+					{
+						csName = MAX_PATH;
+						RegEnumKeyEx(hKey, i, achKey,
+							&csName,
+							NULL,
+							NULL,
+							NULL,
+							NULL);
+
+						lstrcatA(cRegEntry, "\\");
+						lstrcatA(cRegEntry, achKey);
+
+						printf("Found the key! Key: %s\n", cRegEntry);
+						lStatus = SHDeleteKeyA(HKEY_CURRENT_USER, cRegEntry);
+						if (lStatus == ERROR_SUCCESS)
+							printf("Successfully deleted key!\n");
+						else
+							printf(
+								"There was an exception when attempting to delete the registry key! ERROR CODE: %04x\n",
+								lStatus);
+					}
+				}
+			}
+		}
 		else
-			printf(
-				"There was an exception when attempting to delete the registry key! ERROR CODE: %04x\n",
-				lStatus);
+			printf("Could not locate the CLSID folder! Error code: %d\n", lStatus);
 	}
 	else
 		printf("Could not find the CLSID key, perhaps it was already deleted! error code: %d\n", lStatus);
 
 
-	printf("Press any key to exit!");
+	printf("Press any key to exit!\n");
 	getchar();
 	exit(0);
 }
